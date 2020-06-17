@@ -175,6 +175,43 @@ public interface RevisionRange extends VCSModelElement {
 				}
 				accum.addAll(toProcess);
 			}
+			// Postprocessing: Replace accumulated file changes such that the
+			// revisions of the referenced files match with the predecessor and
+			// successor revision of this range.
+			final Revision predRev = getPredecessorRevision().orElse(null);
+			final Revision rev = getRevision();
+			final VCSEngine engine = getVCSEngine();
+			final VCSModelFactory factory = engine.getModelFactory();
+			final ListIterator<FileChange> it = accum.listIterator();
+			while (it.hasNext()) {
+				final FileChange change = it.next();
+				final VCSFile newOldFile = change.getOldFile()
+						.map(file -> {
+							Validate.validateState(predRev != null);
+							final String relPath = file.getRelativePath();
+							final boolean revMatch = file.getRevision()
+									.getId().equals(predRev.getId());
+							return revMatch
+									? file
+									: factory.createVCSFile(
+											relPath, predRev, engine);
+						})
+						.orElse(null);
+				final VCSFile newNewFile = change.getNewFile()
+						.map(file -> {
+							final String relPath = file.getRelativePath();
+							final boolean revMatch = file.getRevision()
+									.getId().equals(rev.getId());
+							return revMatch
+									? file
+									: factory.createVCSFile(
+											relPath, rev, engine);
+						})
+						.orElse(null);
+				final FileChange newChange = factory.createFileChange(
+						newOldFile, newNewFile, engine);
+				it.set(newChange);
+			}
 			return accum;
 		}
 	}
@@ -374,5 +411,33 @@ public interface RevisionRange extends VCSModelElement {
 		if (!isFirst()) {
 			action.accept(this);
 		}
+	}
+
+	/**
+	 * Merges the given revision range and returns a new one, representing the
+	 * state transition from {@code predecessor.getPredecessorRevision} to
+	 * {@code this.getRevision()}. The commits of {@code predecessor} and
+	 * {@code this} are combined such that the commits of {@code this} are
+	 * applied onto the commits of {@code predecessor}.
+	 *
+	 * @param predecessor
+	 * 		The predecessor range to merge.
+	 * @return
+	 * 		A new revision range representing the state transition from
+	 * 		{@code predecessor.getPredecessorRevision} to
+	 * 		{@code this.getRevision()}.
+	 * @throws NullPointerException
+	 * 		If {@code predecessor} is {@code null}.
+	 */
+	default RevisionRange merge(final RevisionRange predecessor)
+			throws NullPointerException {
+		Validate.notNull(predecessor);
+		final VCSEngine engine = getVCSEngine();
+		final List<Commit> commits = predecessor.getCommits();
+		commits.addAll(getCommits());
+		return engine.getModelFactory().createRevisionRange(getOrdinal(),
+				getRevision(),
+				predecessor.getPredecessorRevision().orElse(null), commits,
+				getVCSEngine());
 	}
 }

@@ -53,14 +53,4 @@ public class PMDRunnerTest {
 		assertThat(result).isNotNull();
 	}
 
-	@Test
-	public void CPDTest() throws IOException {
-		RevisionMock revision = new RevisionMock(folder);
-		revision.addFile(Paths.get("cpdtest","Test1.java"));
-		revision.addFile(Paths.get("cpdtest","Test2.java"));
-
-		CPDRunner cpdRunner = new CPDRunner(100);
-		CPDDetectionResult result = cpdRunner.analyze(revision);
-		assertThat(result).isNotNull();
-	}
 }
