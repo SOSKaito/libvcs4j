@@ -24,13 +24,11 @@ public final class CPDDuplication implements Mappable<String> {
     /**
      * Amount of lines that are duplicated
      */
-    @NonNull
     private final int lines;
 
     /**
      * Amount of tokens that the duplication shares
      */
-    @NonNull
     private final int tokens;
 
     @Override
